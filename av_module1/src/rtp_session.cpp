@@ -1,6 +1,8 @@
 #include "rtp_session.h"
-// ENABLE_JRTP is preferably supplied by the build system (item.pro).
-// Keep compiling even if the macro is not passed to avoid hard-stop on misconfigured kits.
+
+#ifndef ENABLE_JRTP
+#error "RtpSession requires jrtplib. Define ENABLE_JRTP and link -ljrtp."
+#endif
 
 #include <jrtplib3/rtpipv4address.h>
 #include <jrtplib3/rtppacket.h>
@@ -10,9 +12,8 @@
 #include <jrtplib3/rtpudpv4transmitter.h>
 #include <jrtplib3/rtperrors.h>
 #include <QThread>
-#include <QCoreApplication>
+#include <QApplication>
 #include <QRandomGenerator>
-
 namespace avcall {
 
 // ---- Pimpl hiding jrtplib types from the header ----
@@ -42,6 +43,9 @@ RtpSession::~RtpSession()
 
 bool RtpSession::start(quint16 localPort)
 {
+
+
+    //printf("dfgdfgregfhgfhgh111");
     if (m_started)
         return true;
 
@@ -49,7 +53,7 @@ bool RtpSession::start(quint16 localPort)
     trans.SetPortbase(localPort);
     const uint32_t bindIp = QHostAddress("192.168.10.50").toIPv4Address();
     trans.SetBindIP(bindIp);
-
+     //printf("dgergrgtrhrt");
     jrtplib::RTPSessionParams params;
     params.SetOwnTimestampUnit(1.0 / 90000.0);
     params.SetAcceptOwnPackets(false);
@@ -60,14 +64,18 @@ bool RtpSession::start(quint16 localPort)
     params.SetCNAME(cname.toStdString());
     params.SetUsePredefinedSSRC(true);
     params.SetPredefinedSSRC(QRandomGenerator::global()->generate());
-
+//    qDebug()<<"ergergryyyyy";
+//    printf("dgergrgtrhrt");
     const int rc = m_impl->session.Create(params, &trans);
     if (rc < 0) {
-        emit logMessage(QString("RTP create failed: %1 (%2)")
-                            .arg(rc)
-                            .arg(QString::fromStdString(jrtplib::RTPGetErrorString(rc))));
-        return false;
-    }
+           emit logMessage(QString("RTP create failed: %1 (%2)")
+                               .arg(rc)
+                               .arg(jrtplib::RTPGetErrorString(rc).c_str()));
+//        qDebug()<<QString("RTP create failed: %1 (%2)")
+//                  .arg(rc)
+//                  .arg(jrtplib::RTPGetErrorString(rc).c_str());
+           return false;
+       }
 
     m_started = true;
     m_timer.start(5);
@@ -93,6 +101,7 @@ void RtpSession::setPeer(const QHostAddress &ip, quint16 port)
     m_impl->peerIp   = ip;
     m_impl->peerPort = port;
 
+    qDebug()<<ip.toString()<<port;
     m_impl->session.ClearDestinations();
     const uint32_t ipv4 = ip.toIPv4Address();
     jrtplib::RTPIPv4Address addr(ipv4, port);
@@ -114,6 +123,7 @@ bool RtpSession::sendAudio(const QByteArray &pcmu, uint32_t ts)
 
 bool RtpSession::sendPacket(int pt, const QByteArray &data, uint32_t tsInc, bool marker)
 {
+    //qDebug()<<"arm                        send";
     if (!m_started || m_impl->peerPort == 0 || data.isEmpty())
         return false;
 
@@ -140,12 +150,13 @@ bool RtpSession::sendPacket(int pt, const QByteArray &data, uint32_t tsInc, bool
         offset += chunk;
         packetCount++;
 
-        // 保持和 av_module1 一致：不在分片间 sleep。
+        // 删掉这个延迟！会导致时间戳错乱！
+        //QThread::usleep(5000);
 
     }
 
     if (pt == 26) {
-        qDebug() << "发送视频帧: 总大小=" << data.size() << "分片数=" << packetCount;
+        //qDebug() << "发送视频帧: 总大小=" << data.size() << "分片数=" << packetCount;
     }
 
     return true;
@@ -153,10 +164,12 @@ bool RtpSession::sendPacket(int pt, const QByteArray &data, uint32_t tsInc, bool
 
 void RtpSession::poll()
 {
+
     m_impl->session.Poll();
     m_impl->session.BeginDataAccess();
     if (m_impl->session.GotoFirstSourceWithData()) {
         do {
+            //qDebug()<<"nnnnnnnnnnn";
             jrtplib::RTPPacket *pkt = nullptr;
             while ((pkt = m_impl->session.GetNextPacket()) != nullptr) {
                 const QByteArray payload(
@@ -167,14 +180,20 @@ void RtpSession::poll()
                 const uint16_t seq = pkt->GetSequenceNumber();
                 const int      pt  = pkt->GetPayloadType();
 
+                //qDebug() << "RTP pkt pt=" << pt
+                //         << "seq=" << seq
+                //         << "len=" << payload.size()
+                 //        << "ts=" << ts
+                  //       << "mk=" << mk
+                  //       << "ssrc=" << pkt->GetSSRC();
                 if (pt == 26){
 
                     emit videoReceived(payload, ts, mk, seq);
-                    qDebug()<<payload.size()<<"remote video received";
+                    //qDebug()<<payload.size()<<"remote video received";
                 }
                 else if (pt == 0){
                     emit audioReceived(payload, ts, mk, seq);
-                    qDebug()<<payload.size()<<"remote audio received";
+                    //qDebug()<<payload.size()<<"remote audio received";
                 }
 
                 m_impl->session.DeletePacket(pkt);

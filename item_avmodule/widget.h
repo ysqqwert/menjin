@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include "users.h"
+#include <av_engine.h>
 QT_BEGIN_NAMESPACE
 namespace Ui { class Widget; }
 QT_END_NAMESPACE
@@ -15,6 +16,7 @@ public:
     Widget(QWidget *parent = nullptr);
     ~Widget();
     Users* users = nullptr;
+    avcall::AvEngine* avEngine = nullptr;
     QTimer* timer;
     QTimer* previewTimer = nullptr;
     QLabel* previewLabel = nullptr;

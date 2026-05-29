@@ -1,60 +1,67 @@
-QT       += core gui network quickwidgets quick qml virtualkeyboard
+QT       += core gui network widgets
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-CONFIG += c++11
 
-# The following define makes your compiler emit warnings if you use
-# any Qt feature that has been marked deprecated (the exact warnings
-# depend on your compiler). Please consult the documentation of the
-# deprecated API in order to know how to port your code away from it.
-DEFINES += QT_DEPRECATED_WARNINGS
+
+
+
+
+
+TARGET = avmodule
+
+
+
+
+
+
+
+
+
+
+
+
 DEFINES += ENABLE_JRTP
 
-# You can also make your code fail to compile if it uses deprecated APIs.
-# In order to do so, uncomment the following line.
-# You can also select to disable deprecated APIs only up to a certain version of Qt.
-#DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
+INCLUDEPATH += \
+    $$PWD/include \
+    $$PWD/src
 
-SOURCES += \
-    alsa_capturer.cpp \
-    alsa_player.cpp \
-    audio_pipeline.cpp \
-    av_engine.cpp \
-    call_state_machine.cpp \
-    face_rec_functions.cpp \
-    main.cpp \
-    pcmu_codec.cpp \
-    rtp_session.cpp \
-    signaling_client.cpp \
-    users.cpp \
-    v4l2_capturer.cpp \
-    video_pipeline.cpp \
-    widget.cpp
-
+# ---- Public headers (for consumer) ----
 HEADERS += \
-    alsa_capturer.h \
-    alsa_player.h \
-    audio_pipeline.h \
-    av_engine.h \
-    av_engine_p.h \
-    av_types.h \
-    call_state_machine.h \
-    face_rec_functions.h \
-    pcmu_codec.h \
-    rtp_session.h \
-    signaling_client.h \
-    signaling_protocol.h \
-    users.h \
-    v4l2_capturer.h \
-    video_pipeline.h \
-    video_widget.h \
-    widget.h
+    $$PWD/include/av_types.h \
+    $$PWD/include/av_engine.h \
+    $$PWD/include/video_widget.h \
+    form.h
 
-FORMS += \
-    face_rec_functions.ui \
-    users.ui \
-    widget.ui
+# ---- Internal headers ----
+HEADERS += \
+    $$PWD/src/av_engine_p.h \
+    $$PWD/src/call_state_machine.h \
+    $$PWD/src/signaling_protocol.h \
+    $$PWD/src/signaling_client.h \
+    $$PWD/src/rtp_session.h \
+    $$PWD/src/video_pipeline.h \
+    $$PWD/src/audio_pipeline.h \
+    $$PWD/src/pcmu_codec.h \
+    $$PWD/src/v4l2_capturer.h \
+    $$PWD/src/alsa_capturer.h \
+    $$PWD/src/alsa_player.h
+
+# ---- Sources ----
+SOURCES += \
+    $$PWD/src/av_engine.cpp \
+    $$PWD/src/call_state_machine.cpp \
+    $$PWD/src/signaling_client.cpp \
+    $$PWD/src/rtp_session.cpp \
+    $$PWD/src/video_pipeline.cpp \
+    $$PWD/src/audio_pipeline.cpp \
+    $$PWD/src/pcmu_codec.cpp \
+    $$PWD/src/v4l2_capturer.cpp \
+    $$PWD/src/alsa_capturer.cpp \
+    $$PWD/src/alsa_player.cpp \
+    $$PWD/src/main.cpp \
+    form.cpp
+
 
 INCLUDEPATH += /home/ysq/Desktop/jthread/build_arm/install/include
 LIBS += -L/home/ysq/Desktop/jthread/build_arm/install/lib -ljthread
@@ -99,14 +106,9 @@ LIBS += -lQt5Core -lQt5Gui -lQt5Widgets -lQt5Test
 
 LIBS += -lasound -lpthread
 
+qnx: target.path = /tmp/$${TARGET}/bin
+else: unix:!android: target.path = /opt/$${TARGET}/bin
+!isEmpty(target.path): INSTALLS += target
 
-
-
-# Default rules for deployment.
-
-target.path = /root
-INSTALLS += target
-
-
-RESOURCES += \
-    pic.qrc
+FORMS += \
+    form.ui

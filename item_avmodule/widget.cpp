@@ -12,6 +12,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QUdpSocket>
 #include <av_engine.h>
 #include <video_widget.h>
 #include <QDebug>
@@ -60,6 +61,31 @@ Widget::Widget(QWidget *parent)
          }
          users->rec->updateFrame(previewLabel);
      });
+
+    avEngine = new avcall::AvEngine(this);
+    QObject::connect(avEngine, &avcall::AvEngine::remoteVideoFrame,
+                     previewLabel, [=](const QImage &frame){
+        QPixmap pix = QPixmap::fromImage(frame);
+        pix = pix.scaled(previewLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation);
+        previewLabel->setPixmap(pix);
+    });
+
+    QObject::connect(avEngine, &avcall::AvEngine::error,
+                     this, [](const QString &msg) {
+        qWarning() << "av error:" << msg;
+    });
+    QObject::connect(avEngine, &avcall::AvEngine::logMessage,
+                     this, [](const QString &msg) {
+        qWarning() << "av log:" << msg;
+    });
+
+    QObject::connect(avEngine, &avcall::AvEngine::incomingCall,
+                     this, [this](const QString &peer) {
+        qInfo() << "incoming call from" << peer;
+        if (avEngine) {
+            avEngine->accept();
+        }
+    });
 }
 
 Widget::~Widget()
@@ -187,52 +213,57 @@ void Widget::on_pushButton_3_clicked()
 
 void Widget::on_pushButton_2_clicked()
 {
-    avcall::AvEngine engine;
+    if (!avEngine) {
+        qWarning() << "av engine is null";
+        return;
+    }
+
+    // 第二次点击时关闭已启动的引擎（第一次启动，第二次关闭）。
+    if (avEngine->isRunning()) {
+        avEngine->stop();
+        qInfo() << "engine stopped by second click";
+        return;
+    }
+
     avcall::AvConfig cfg;
     cfg.signalingHost = "192.168.10.200"; // Replace with your signaling server IP.
     cfg.signalingPort = 9000;
-
-
-    //QObject::connect(&engine, &avcall::AvEngine::localVideoFrame,
-    //                localView, &avcall::VideoWidget::setFrame);
-//    QObject::connect(&engine, &avcall::AvEngine::localVideoFrame,
-//                     previewLabel, [=](const QImage &frame){
-
-//        QPixmap pix = QPixmap::fromImage(frame);
-//        pix = pix.scaled(previewLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation);
-//        previewLabel->setPixmap(pix);
-//        qDebug()<<"local view";
-//    });
-    QObject::connect(&engine, &avcall::AvEngine::remoteVideoFrame,
-                     previewLabel, [=](const QImage &frame){
-        qDebug()<<"ergrehgtrhtrhtyh56h6thtyhj";
-        QPixmap pix = QPixmap::fromImage(frame);
-        pix = pix.scaled(previewLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation);
-        previewLabel->setPixmap(pix);
-    });
-
-    //QObject::connect(&engine, &avcall::AvEngine::remoteVideoFrame,
-    //                remoteView, &avcall::VideoWidget::setFrame);
-
-    QObject::connect(&engine, &avcall::AvEngine::error,
-                     this, [](const QString &msg) {
-        qWarning() << "av error:" << msg;
-    });
-
-
     cfg.userId = "bob";
-    cfg.rtpPort = 15000;
     cfg.videoDevice = "/dev/video0";
+    const QList<quint16> candidatePorts{5008, 5004, 5006, 15000, 15002};
+    bool started = false;
 
-    engine.setConfig(cfg);
+    auto canBindRtpPair = [](quint16 basePort) -> bool {
+        QUdpSocket rtpSocket;
+        QUdpSocket rtcpSocket;
+        const bool okRtp = rtpSocket.bind(QHostAddress::AnyIPv4, basePort);
+        if (!okRtp) {
+            qWarning() << "rtp port bind test failed:" << basePort << rtpSocket.errorString();
+            return false;
+        }
+        const bool okRtcp = rtcpSocket.bind(QHostAddress::AnyIPv4, basePort + 1);
+        if (!okRtcp) {
+            qWarning() << "rtcp port bind test failed:" << (basePort + 1) << rtcpSocket.errorString();
+            return false;
+        }
+        return true;
+    };
 
-    QObject::connect(&engine, &avcall::AvEngine::incomingCall,
-                     this, [&](const QString &peer) {
-        qInfo() << "incoming call from" << peer;
-        engine.accept();
-    });
+    for (quint16 port : candidatePorts) {
+        if (!canBindRtpPair(port)) {
+            continue;
+        }
+        cfg.rtpPort = port;
+        avEngine->setConfig(cfg);
+        if (avEngine->start()) {
+            qInfo() << "callee started, rtpPort =" << port;
+            started = true;
+            break;
+        }
+        avEngine->stop();
+    }
 
-    if (!engine.start()) {
-        qWarning() << "callee start failed";
+    if (!started) {
+        qWarning() << "callee start failed: all candidate RTP ports failed";
     }
 }
