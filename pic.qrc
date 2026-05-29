@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/">
+        <file>pic/视频通话 (1).png</file>
+        <file>pic/视频通话.png</file>
+        <file>pic/人脸识别.png</file>
+        <file>pic/加好友.png</file>
+        <file>pic/关机.png</file>
+        <file>pic/电话.png</file>
+        <file>pic/__菜单-锁屏.png</file>
+        <file>pic/png (4).png</file>
+        <file>pic/png (3).png</file>
+        <file>pic/png (2).png</file>
+        <file>pic/png.png</file>
+        <file>pic/1706084559797_3541.png</file>
+        <file>pic/R-C.png</file>
+        <file>keyboard.qml</file>
+    </qresource>
+</RCC>
