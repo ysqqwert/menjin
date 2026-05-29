@@ -16,14 +16,38 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    alsa_capturer.cpp \
+    alsa_player.cpp \
+    audio_pipeline.cpp \
+    av_engine.cpp \
+    call_state_machine.cpp \
     face_rec_functions.cpp \
     main.cpp \
+    pcmu_codec.cpp \
+    rtp_session.cpp \
+    signaling_client.cpp \
     users.cpp \
+    v4l2_capturer.cpp \
+    video_pipeline.cpp \
     widget.cpp
 
 HEADERS += \
+    alsa_capturer.h \
+    alsa_player.h \
+    audio_pipeline.h \
+    av_engine.h \
+    av_engine_p.h \
+    av_types.h \
+    call_state_machine.h \
     face_rec_functions.h \
+    pcmu_codec.h \
+    rtp_session.h \
+    signaling_client.h \
+    signaling_protocol.h \
     users.h \
+    v4l2_capturer.h \
+    video_pipeline.h \
+    video_widget.h \
     widget.h
 
 FORMS += \

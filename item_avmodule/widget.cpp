@@ -5,10 +5,17 @@
 #include <sys/time.h>   // gettimeofday 所在头文件
 #include <time.h>
 #include<QTimer>
-#include <QMessageBox>
-#include <QThread>
+#include<QThread>
+#include<QMessageBox>
+#include <QApplication>
+#include <QDebug>
+#include <QTimer>
 #include <QVBoxLayout>
-
+#include <QWidget>
+#include <av_engine.h>
+#include <video_widget.h>
+#include <QDebug>
+#include <QLabel>
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Widget)
@@ -24,7 +31,6 @@ Widget::Widget(QWidget *parent)
 
     timer = new QTimer(this);
     previewTimer = new QTimer(this);
-
 
     connect(timer,&QTimer::timeout,this,[=](){
         struct timeval tv;
@@ -48,13 +54,12 @@ Widget::Widget(QWidget *parent)
 
     });
     timer->start(1000);
-
     connect(previewTimer, &QTimer::timeout, this, [this]() {
-        if (!users || !users->rec || !previewLabel) {
-            return;
-        }
-        users->rec->updateFrame(previewLabel);
-    });
+         if (!users || !users->rec || !previewLabel) {
+             return;
+         }
+         users->rec->updateFrame(previewLabel);
+     });
 }
 
 Widget::~Widget()
@@ -65,6 +70,8 @@ Widget::~Widget()
 
 void Widget::on_pushButton_clicked()
 {
+
+
     if (!users) {
         users = new Users();
         connect(users, &Users::out, this, [this]() {
@@ -81,6 +88,7 @@ void Widget::on_pushButton_clicked()
     users->show();
 
 }
+
 
 void Widget::on_pushButton_3_clicked()
 {
@@ -104,17 +112,15 @@ void Widget::on_pushButton_3_clicked()
 
     users->startCamera();
     if (previewTimer && !previewTimer->isActive()) {
-            previewTimer->start(66);
+            previewTimer->start(33);
         }
 
     cv::Mat currentFeat;
     bool captured = false;
     for (int retry = 0; retry < 20; ++retry) {
-        QThread::msleep(100);
-        if (!users || !users->rec) {
-            break;
-        }
-        if (users->rec->features_capture(currentFeat) > 0 && !currentFeat.empty()) {
+        QCoreApplication::processEvents();
+        QThread::msleep(80);
+        if (users->rec && users->rec->features_capture(currentFeat) > 0 && !currentFeat.empty()) {
             captured = true;
             break;
         }
@@ -122,6 +128,9 @@ void Widget::on_pushButton_3_clicked()
 
     if (!captured) {
         QMessageBox::warning(this, "人脸识别", "未检测到有效人脸，请正对摄像头后重试。");
+        users->stopCamera();
+        delete users;
+        users=nullptr;
         return;
     }
 
@@ -146,6 +155,9 @@ void Widget::on_pushButton_3_clicked()
 
     if (bestSim < 0.0) {
         QMessageBox::warning(this, "人脸识别", "数据库中没有可用的人脸特征。");
+        users->stopCamera();
+        delete users;
+        users=nullptr;
         return;
     }
 
@@ -156,6 +168,9 @@ void Widget::on_pushButton_3_clicked()
             QString("识别到用户：%1\n工号：%2\n相似度：%3")
                 .arg(bestName, bestNumber)
                 .arg(bestSim, 0, 'f', 3));
+        users->stopCamera();
+        delete users;
+        users=nullptr;
     } else {
         QMessageBox::information(
             this,
@@ -163,5 +178,61 @@ void Widget::on_pushButton_3_clicked()
             QString("未匹配到已登记用户。\n最高相似度：%1（阈值：%2）")
                 .arg(bestSim, 0, 'f', 3)
                 .arg(kRecognitionThreshold, 0, 'f', 3));
+        users->stopCamera();
+        delete users;
+        users=nullptr;
+    }
+}
+
+
+void Widget::on_pushButton_2_clicked()
+{
+    avcall::AvEngine engine;
+    avcall::AvConfig cfg;
+    cfg.signalingHost = "192.168.10.200"; // Replace with your signaling server IP.
+    cfg.signalingPort = 9000;
+
+
+    //QObject::connect(&engine, &avcall::AvEngine::localVideoFrame,
+    //                localView, &avcall::VideoWidget::setFrame);
+//    QObject::connect(&engine, &avcall::AvEngine::localVideoFrame,
+//                     previewLabel, [=](const QImage &frame){
+
+//        QPixmap pix = QPixmap::fromImage(frame);
+//        pix = pix.scaled(previewLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation);
+//        previewLabel->setPixmap(pix);
+//        qDebug()<<"local view";
+//    });
+    QObject::connect(&engine, &avcall::AvEngine::remoteVideoFrame,
+                     previewLabel, [=](const QImage &frame){
+        qDebug()<<"ergrehgtrhtrhtyh56h6thtyhj";
+        QPixmap pix = QPixmap::fromImage(frame);
+        pix = pix.scaled(previewLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation);
+        previewLabel->setPixmap(pix);
+    });
+
+    //QObject::connect(&engine, &avcall::AvEngine::remoteVideoFrame,
+    //                remoteView, &avcall::VideoWidget::setFrame);
+
+    QObject::connect(&engine, &avcall::AvEngine::error,
+                     this, [](const QString &msg) {
+        qWarning() << "av error:" << msg;
+    });
+
+
+    cfg.userId = "bob";
+    cfg.rtpPort = 15000;
+    cfg.videoDevice = "/dev/video0";
+
+    engine.setConfig(cfg);
+
+    QObject::connect(&engine, &avcall::AvEngine::incomingCall,
+                     this, [&](const QString &peer) {
+        qInfo() << "incoming call from" << peer;
+        engine.accept();
+    });
+
+    if (!engine.start()) {
+        qWarning() << "callee start failed";
     }
 }

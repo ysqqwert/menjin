@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QQuickWidget>
 #include <QDir>
+#include <QStandardPaths>
 Users::Users(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::Users)
@@ -74,7 +75,7 @@ void Users::startCamera()
         rec->startProcessing();
     }
     if (timer && !timer->isActive()) {
-        timer->start(66);
+        timer->start(33);
     }
 }
 
@@ -136,13 +137,10 @@ void Users::on_pushButton_capture_clicked()
 {
     //采集人脸特征
 
-    
-    static bool started = false;
-    if (!started) {
+
+
         startCamera();
-        qDebug()<<"first";
-        started = true;
-    }
+
     cv::Mat mat;
     static int i=0;
 
@@ -186,11 +184,11 @@ void Users::on_pushButton_tuichu_clicked()
 QString Users::userDataFilePath() const
 {
     const QString dataDir = QStringLiteral("/mnt/sd/userdata");
-    QDir dir(dataDir);
-    if (!dir.exists()) {
-        dir.mkpath(".");
-    }
-    return dir.filePath("users.yml");
+       QDir dir(dataDir);
+       if (!dir.exists()) {
+           dir.mkpath(".");
+       }
+       return dir.filePath("users.yml");
 }
 
 void Users::loadUsersFromDisk()

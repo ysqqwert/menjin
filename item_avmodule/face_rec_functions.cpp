@@ -38,8 +38,8 @@ void face_rec_functions::cap_init(){
         qDebug() << "打开摄像头失败";  // 输出错误信息
     } else {
         // 设置摄像头分辨率
-        cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-        cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+        cap.set(cv::CAP_PROP_FRAME_WIDTH, 320);
+        cap.set(cv::CAP_PROP_FRAME_HEIGHT, 240);
         cap.set(cv::CAP_PROP_BUFFERSIZE, 1);       // 降低缓冲，减少画面延迟
         qDebug() << "摄像头打开成功";  // 输出成功信息
     }
@@ -70,14 +70,19 @@ void face_rec_functions::stopProcessing()
 QImage face_rec_functions::cvMatToQImage(const cv::Mat& mat) {
     switch (mat.type()) {             // 根据Mat的数据类型进行不同处理
         case CV_8UC4: {               // 4通道8位无符号整数（BGRA格式）
-            cv::Mat rgba;
-            cv::cvtColor(mat, rgba, cv::COLOR_BGRA2RGBA);
-            return QImage(rgba.data, rgba.cols, rgba.rows, rgba.step, QImage::Format_RGBA8888).copy();
+            // 创建QImage，直接使用Mat的数据指针，避免数据拷贝
+            // mat.data: 图像数据指针
+            // mat.cols: 图像宽度（列数）
+            // mat.rows: 图像高度（行数）
+            // mat.step: 每行的字节数（步长）
+            // QImage::Format_RGB32: 32位RGB格式
+            QImage image(mat.data, mat.cols, mat.rows, mat.step, QImage::Format_RGB32);
+            return image.rgbSwapped().copy();  // 交换RGB通道（OpenCV是BGR，Qt是RGB），并复制数据
         }
         case CV_8UC3: {               // 3通道8位无符号整数（BGR格式）
-            cv::Mat rgb;
-            cv::cvtColor(mat, rgb, cv::COLOR_BGR2RGB);
-            return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step, QImage::Format_RGB888).copy();
+            // 创建RGB888格式的QImage
+            QImage image(mat.data, mat.cols, mat.rows, mat.step, QImage::Format_RGB888);
+            return image.rgbSwapped().copy();  // 交换RGB通道并复制数据
         }
         case CV_8UC1: {               // 单通道8位无符号整数（灰度图）
             // 创建灰度图格式的QImage
@@ -135,15 +140,15 @@ void face_rec_functions::processingLoop()
         const bool doDetect = (++detectCounter % detectInterval == 0);
         if (doDetect && faceCascadeReady) {
             cv::Mat smallFrame;
-            cv::resize(frame, smallFrame, cv::Size(320, 240));
+            //cv::resize(frame, smallFrame, cv::Size(320, 240));
 
             cv::Mat matGray;
-            cv::cvtColor(smallFrame, matGray, cv::COLOR_BGR2GRAY);
+            cv::cvtColor(frame, matGray, cv::COLOR_BGR2GRAY);
 
             face_cascade.detectMultiScale(matGray, detectedFaces, 1.2, 5, 0, cv::Size(60, 60));
 
-            const double scaleX = double(frame.cols) / smallFrame.cols;
-            const double scaleY = double(frame.rows) / smallFrame.rows;
+            const double scaleX = double(frame.cols) / frame.cols;
+            const double scaleY = double(frame.rows) / frame.rows;
             for (auto &face : detectedFaces) {
                 face.x = int(face.x * scaleX);
                 face.y = int(face.y * scaleY);
@@ -273,10 +278,7 @@ int face_rec_functions::features_capture(cv::Mat& mat){
 double face_rec_functions::face_recongize(cv::Mat& mat)
 {
     // 检查是否已完成足够数量的采集（需要采集3张才能比对）
-    if (collectCount < collectTarget) {
-        qDebug() << "请先采集" << collectTarget << "张人脸";  // 输出提示信息
-        return -1;                        // 提前返回
-    }
+
 
     // 检查是否检测到人脸
     std::vector<cv::Rect> localFaces;
